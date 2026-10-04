@@ -9,12 +9,19 @@ const MODULES = {
 
 const $ = (selector) => document.querySelector(selector);
 let participant = null;
+let csrfToken = "";
 
 async function api(route, options = {}) {
   const isFormData = options.body instanceof FormData;
+  const method = options.method || "GET";
   const response = await fetch(`${API}?route=${route}`, {
     credentials: "same-origin",
-    headers: isFormData ? {} : { "Content-Type": "application/json" },
+    headers: {
+      ...(isFormData ? {} : { "Content-Type": "application/json" }),
+      ...(method !== "GET" && route !== "participant-login" && csrfToken
+        ? { "X-CSRF-Token": csrfToken }
+        : {}),
+    },
     ...options,
   });
   const data = await response.json().catch(() => ({}));
@@ -77,6 +84,7 @@ $("#login-form").addEventListener("submit", async (event) => {
   $("#login-error").textContent = "";
   try {
     await api("participant-login", { method: "POST", body: JSON.stringify(Object.fromEntries(new FormData(event.currentTarget))) });
+    csrfToken = (await api("csrf")).token;
     showPortal(await api("participant-me"));
   } catch (error) { $("#login-error").textContent = error.message; }
 });

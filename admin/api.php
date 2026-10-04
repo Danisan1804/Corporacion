@@ -1,9 +1,12 @@
 <?php
-session_start();
+require_once __DIR__ . '/bootstrap.php';
 date_default_timezone_set("America/Bogota");
 header("Content-Type: application/json; charset=utf-8");
 header("Cache-Control: no-store");
 header("Access-Control-Allow-Methods: GET, POST");
+header("X-Content-Type-Options: nosniff");
+header("Referrer-Policy: same-origin");
+header("X-Frame-Options: DENY");
 
 $configFile = __DIR__ . "/config.php";
 if (!file_exists($configFile)) {
@@ -193,8 +196,12 @@ $method = $_SERVER["REQUEST_METHOD"];
 if ($route === "health") {
     out(["ok" => true]);
 }
+if ($method === "GET" && $route === "csrf") {
+    out(["token" => csrfToken()]);
+}
 
 if ($route === "login" && $method === "POST") {
+    if (!loginAttempt("admin")) out(["error" => "Demasiados intentos. Intenta nuevamente en 15 minutos."], 429);
     $d = input();
     $user = clean($d["username"] ?? "", 80);
     $pass = (string) ($d["password"] ?? "");
@@ -202,14 +209,18 @@ if ($route === "login" && $method === "POST") {
     $q->execute([$user]);
     $admin = $q->fetch();
     if (!$admin || !password_verify($pass, $admin["password_hash"])) {
+        loginAttempt("admin");
         out(["error" => "Usuario o contraseña incorrectos."], 401);
     }
+    loginAttempt("admin", true);
     session_regenerate_id(true);
+    csrfToken();
     $_SESSION["admin_id"] = $admin["id"];
     $_SESSION["admin_username"] = $admin["username"];
     out(["ok" => true, "username" => $admin["username"]]);
 }
 if ($route === "logout" && $method === "POST") {
+    requireCsrfToken();
     $_SESSION = [];
     session_destroy();
     out(["ok" => true]);
@@ -221,6 +232,7 @@ if ($route === "me" && $method === "GET") {
     ]);
 }
 if ($route === "participant-login" && $method === "POST") {
+    if (!loginAttempt("participant")) out(["error" => "Demasiados intentos. Intenta nuevamente en 15 minutos."], 429);
     $d = input();
     $username = strtolower(clean($d["email"] ?? "", 180));
     // Evita que espacios agregados al copiar las credenciales hagan fallar el acceso.
@@ -231,12 +243,15 @@ if ($route === "participant-login" && $method === "POST") {
     $q->execute([$username]);
     $account = $q->fetch();
     if (!$account || !password_verify($password, $account["password_hash"])) {
+        loginAttempt("participant");
         out(["error" => "Correo o contraseña incorrectos."], 401);
     }
     if (in_array($account["status"], ["Retirado", "Finalizado"], true)) {
         out(["error" => "Este acceso no está habilitado actualmente."], 403);
     }
+    loginAttempt("participant", true);
     session_regenerate_id(true);
+    csrfToken();
     $_SESSION["participant_id"] = (int) $account["participant_id"];
     $_SESSION["participant_email"] = $account["email"];
     $q = $pdo->prepare(
@@ -246,6 +261,7 @@ if ($route === "participant-login" && $method === "POST") {
     out(["ok" => true, "name" => $account["name"]]);
 }
 if ($route === "participant-logout" && $method === "POST") {
+    requireCsrfToken();
     unset($_SESSION["participant_id"], $_SESSION["participant_email"]);
     out(["ok" => true]);
 }
@@ -323,7 +339,11 @@ if ($route === "participant/evidence" && $method === "POST") {
 if ($route === "participant/attendance" && $method === "POST") {
     out(["error" => "Selecciona un encuentro y adjunta una foto para registrar la asistencia."], 400);
 }
+if ($route === "participant/evidence" && $method === "POST") {
+    requireCsrfToken();
+}
 if (preg_match('#^participant/meetings/(\\d+)/attendance$#', $route, $m) && $method === "POST") {
+    requireCsrfToken();
     $participantId = participantSession();
     $meetingId = (int) $m[1];
     $q = $pdo->prepare("SELECT * FROM training_meetings WHERE id=?");
@@ -476,6 +496,7 @@ if ($method === "POST" && $route === "participants") {
 if (!isset($_SESSION["admin_id"])) {
     out(["error" => "Debes iniciar sesión como administrador."], 401);
 }
+if ($method === "POST") requireCsrfToken();
 
 if ($method === "GET" && $route === "applications") {
     $rows = $pdo

@@ -1,0 +1,13 @@
+admin/config.local.php
+.env
+.env.*
+admin/uploads/*
+!admin/uploads/attendance/
+!admin/uploads/attendance/.htaccess
+!admin/uploads/attendance/.gitkeep
+*.sql
+*.sql.gz
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

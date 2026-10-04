@@ -5,11 +5,17 @@ const requestsList = document.querySelector("#requests-list");
 const participantsTableBody = document.querySelector(
   "#participants-table-body",
 );
+let csrfToken = "";
 
 async function requestApi(route, options = {}) {
+  const method = options.method || "GET";
+  const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
+  if (method !== "GET" && route !== "login" && csrfToken) {
+    headers["X-CSRF-Token"] = csrfToken;
+  }
   const response = await fetch(`api.php?route=${route}`, {
     credentials: "same-origin",
-    headers: { "Content-Type": "application/json" },
+    headers,
     ...options,
   });
   const data = await response.json().catch(() => ({}));
@@ -32,7 +38,8 @@ function escapeHtml(value) {
   );
 }
 
-function showAdmin() {
+async function showAdmin() {
+  csrfToken = (await requestApi("csrf")).token;
   loginScreen.classList.add("hidden");
   loadAdminData();
 }

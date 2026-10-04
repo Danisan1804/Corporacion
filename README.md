@@ -166,7 +166,6 @@ INS LEL/
 │   ├── config.php              # Configuración privada de MySQL
 │   ├── informes.php            # Informes protegidos
 │   ├── solicitudes.php         # Vista de solicitudes
-│   └── setup_admin.php         # Configuración inicial del administrador
 └── participant/
     ├── index.html              # Portal del participante
     ├── participant.js          # Lógica del portal
@@ -202,9 +201,9 @@ INS LEL/
    cd INS-LEL
    ```
 
-2. Copiar la configuración de ejemplo o editar `admin/config.php`.
+2. Copiar `admin/config.example.php` como `admin/config.local.php`. Este archivo está ignorado por Git y no debe subirse al repositorio.
 
-3. Completar las credenciales de la base de datos:
+3. Completar las credenciales de la base de datos en `admin/config.local.php`:
 
    ```php
    return [
@@ -222,7 +221,7 @@ INS LEL/
 
 6. Abrir la página pública desde el navegador.
 
-7. Configurar el primer administrador mediante el procedimiento de instalación correspondiente. Después de utilizar `setup_admin.php`, debe protegerse o retirarse del servidor público.
+7. Crear el primer administrador mediante un procedimiento privado del hosting o directamente en la base de datos. El repositorio no incluye un instalador público de administradores.
 
 ## Configuración para Servidor
 
@@ -276,6 +275,8 @@ La plataforma ya tiene el flujo principal del MVP. Los siguientes pasos que cons
 - Separar las credenciales mediante variables de entorno cuando el hosting lo permita.
 - Añadir protección CSRF a los formularios administrativos.
 - Aplicar rate limiting persistente en todos los endpoints sensibles.
+- Configurar las cookies de sesión con `HttpOnly`, `Secure` y `SameSite`.
+- Bloquear la ejecución y el listado de archivos dentro de `admin/uploads/`.
 - Añadir recuperación segura de contraseña por correo.
 - Incorporar auditoría de acciones administrativas.
 - Añadir pruebas automatizadas para la API.
